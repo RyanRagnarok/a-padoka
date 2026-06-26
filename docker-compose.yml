@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: padoka_db
+    environment:
+      POSTGRES_USER: padoka_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-padoka_password}
+      POSTGRES_DB: padoka_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  backend:
+    build:
+      context: ./backend
+    container_name: padoka_backend
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgres://padoka_user:${POSTGRES_PASSWORD:-padoka_password}@db:5432/padoka_db
+      - PORT=3001
+      - JWT_SECRET=${JWT_SECRET:-uma_chave_longa_e_aleatoria_aqui}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      - db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: padoka_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  pgdata:

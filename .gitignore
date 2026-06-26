@@ -1,0 +1,13 @@
+# Dependências do Node
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Variáveis de Ambiente (Segurança)
+.env
+frontend/.env
+backend/.env
+
+# Backups de Banco de Dados
+backups/
+*.sql
