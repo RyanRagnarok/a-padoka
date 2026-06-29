@@ -1,0 +1,33 @@
+name: Padoka CI (Validação e Build)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validacao-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build do Frontend
+      working-directory: ./frontend
+      run: |
+        npm install
+        npm run build
+
+    - name: Instalação do Backend
+      working-directory: ./backend
+      run: npm install
+
+    - name: Teste de Build do Docker Compose
+      run: docker-compose build
