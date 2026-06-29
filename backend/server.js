@@ -42,6 +42,12 @@ async function initDb() {
         has_flavors BOOLEAN DEFAULT false,
         flavors VARCHAR(255)
       );
+      CREATE TABLE IF NOT EXISTS product_variations (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        price NUMERIC(10, 2) NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS clients (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -104,6 +110,7 @@ async function initDb() {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS addition_description TEXT;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS variation_id INTEGER REFERENCES product_variations(id) ON DELETE SET NULL;');
     await pool.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS details JSONB;');
     
     // Check if users exist
@@ -193,7 +200,14 @@ app.get('/api/health', async (req, res) => {
 // Products CRUD
 app.get('/api/products', authenticateToken, async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM products ORDER BY id DESC');
+    const { rows } = await pool.query(`
+      SELECT p.*, 
+             COALESCE(json_agg(json_build_object('id', v.id, 'name', v.name, 'price', v.price)) FILTER (WHERE v.id IS NOT NULL), '[]') as variations 
+      FROM products p 
+      LEFT JOIN product_variations v ON p.id = v.product_id 
+      GROUP BY p.id 
+      ORDER BY p.id DESC
+    `);
     res.json(rows);
   } catch (err) {
     console.error('[ERRO]:', err);
@@ -201,10 +215,18 @@ app.get('/api/products', authenticateToken, async (req, res) => {
   }
 });
 app.post('/api/products', authenticateToken, async (req, res) => {
-  const { name, description, price, category, has_flavors, flavors } = req.body;
+  const { name, description, price, category, has_flavors, flavors, variations } = req.body;
   try {
-    const { rows } = await pool.query('INSERT INTO products (name, description, price, category, has_flavors, flavors) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', [name, description, price, category || 'Outros', has_flavors || false, flavors || '']);
-    res.json(rows[0]);
+    const { rows } = await pool.query('INSERT INTO products (name, description, price, category, has_flavors, flavors) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', [name, description, price || 0, category || 'Outros', has_flavors || false, flavors || '']);
+    const newProduct = rows[0];
+    
+    if (variations && Array.isArray(variations)) {
+      for (const v of variations) {
+        await pool.query('INSERT INTO product_variations (product_id, name, price) VALUES ($1, $2, $3)', [newProduct.id, v.name, v.price]);
+      }
+    }
+    
+    res.json(newProduct);
   } catch (err) {
     console.error('[ERRO]:', err);
     res.status(500).json({ message: 'Erro interno no servidor' });
@@ -221,12 +243,20 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/products/:id', authenticateToken, async (req, res) => {
-  const { name, description, price, category, has_flavors, flavors } = req.body;
+  const { name, description, price, category, has_flavors, flavors, variations } = req.body;
   try {
     await pool.query(
       'UPDATE products SET name = $1, description = $2, price = $3, category = $4, has_flavors = $5, flavors = $6 WHERE id = $7',
-      [name, description, price, category, has_flavors, flavors, req.params.id]
+      [name, description, price || 0, category, has_flavors, flavors, req.params.id]
     );
+
+    if (variations && Array.isArray(variations)) {
+      await pool.query('DELETE FROM product_variations WHERE product_id = $1', [req.params.id]);
+      for (const v of variations) {
+        await pool.query('INSERT INTO product_variations (product_id, name, price) VALUES ($1, $2, $3)', [req.params.id, v.name, v.price]);
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[ERRO]:', err);
@@ -298,9 +328,10 @@ app.put('/api/clients/:id', authenticateToken, async (req, res) => {
 app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT o.*, p.name as product_name, c.name as client_name
+      SELECT o.*, p.name as product_name, c.name as client_name, v.name as variation_name
       FROM orders o 
       JOIN products p ON o.product_id = p.id 
+      LEFT JOIN product_variations v ON o.variation_id = v.id
       LEFT JOIN clients c ON o.client_id = c.id
       ORDER BY o.delivery_date ASC NULLS LAST, o.delivery_time ASC NULLS LAST, o.id DESC
     `);
@@ -312,11 +343,11 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/orders', authenticateToken, async (req, res) => {
-  const { product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, flavor, discount, addition, addition_description } = req.body;
+  const { product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, flavor, discount, addition, addition_description, variation_id } = req.body;
   try {
     const { rows } = await pool.query(
-      'INSERT INTO orders (product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, status, flavor, discount, addition, addition_description) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
-      [product_id, client_id || null, quantity, total_price, payment_method, delivery_date, delivery_time, 'Pendente', flavor, discount || 0, addition || 0, addition_description || '']
+      'INSERT INTO orders (product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, status, flavor, discount, addition, addition_description, variation_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
+      [product_id, client_id || null, quantity, total_price, payment_method, delivery_date, delivery_time, 'Pendente', flavor, discount || 0, addition || 0, addition_description || '', variation_id || null]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -326,7 +357,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/orders/:id', authenticateToken, async (req, res) => {
-  const { product_id, quantity, flavor, discount, addition, addition_description, total_price, payment_method, delivery_date, delivery_time } = req.body;
+  const { product_id, quantity, flavor, discount, addition, addition_description, total_price, payment_method, delivery_date, delivery_time, variation_id } = req.body;
   try {
     const { rows } = await pool.query(
       `UPDATE orders SET 
@@ -339,9 +370,10 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
         total_price = $7, 
         payment_method = $8, 
         delivery_date = $9, 
-        delivery_time = $10 
-       WHERE id = $11 RETURNING *`,
-      [product_id, quantity, flavor || null, discount || 0, addition || 0, addition_description || '', total_price, payment_method, delivery_date, delivery_time, req.params.id]
+        delivery_time = $10,
+        variation_id = $11
+       WHERE id = $12 RETURNING *`,
+      [product_id, quantity, flavor || null, discount || 0, addition || 0, addition_description || '', total_price, payment_method, delivery_date, delivery_time, variation_id || null, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {

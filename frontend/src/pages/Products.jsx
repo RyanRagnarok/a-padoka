@@ -1,21 +1,17 @@
-import { apiFetch } from '../utils/api';
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../utils/api';
 
 function Products({ token }) {
   const [products, setProducts] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
   const [category, setCategory] = useState('Salgados');
-  const [hasFlavors, setHasFlavors] = useState(false);
-  const [flavors, setFlavors] = useState('');
+  const [variations, setVariations] = useState([{ name: '', price: '' }]);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editPrice, setEditPrice] = useState('');
   const [editCategory, setEditCategory] = useState('');
-  const [editHasFlavors, setEditHasFlavors] = useState(false);
-  const [editFlavors, setEditFlavors] = useState('');
+  const [editVariations, setEditVariations] = useState([{ name: '', price: '' }]);
 
   const fetchProducts = async () => {
     try {
@@ -35,22 +31,21 @@ function Products({ token }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (variations.some(v => !v.name || !v.price)) {
+      alert('Preencha nome e preço para todas as variações.');
+      return;
+    }
     try {
       const res = await apiFetch('/api/products', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-           
-        },
-        body: JSON.stringify({ name, description, price, category, has_flavors: hasFlavors, flavors })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description, category, variations })
       });
       if (res.ok) {
         setName('');
         setDescription('');
-        setPrice('');
         setCategory('Salgados');
-        setHasFlavors(false);
-        setFlavors('');
+        setVariations([{ name: '', price: '' }]);
         fetchProducts();
       }
     } catch (err) {
@@ -60,10 +55,7 @@ function Products({ token }) {
 
   const handleDelete = async (id) => {
     try {
-      const res = await apiFetch(`/api/products/${id}`, {
-        method: 'DELETE',
-        headers: {  }
-      });
+      const res = await apiFetch(`/api/products/${id}`, { method: 'DELETE' });
       if (res.ok) fetchProducts();
     } catch (err) {
       console.error(err);
@@ -74,21 +66,32 @@ function Products({ token }) {
     setEditingId(product.id);
     setEditName(product.name);
     setEditDescription(product.description || '');
-    setEditPrice(product.price);
     setEditCategory(product.category || 'Salgados');
-    setEditHasFlavors(product.has_flavors || false);
-    setEditFlavors(product.flavors || '');
+    if (product.variations && product.variations.length > 0) {
+      setEditVariations(product.variations);
+    } else {
+      const oldVariations = [];
+      if (product.has_flavors && product.flavors) {
+        product.flavors.split(',').forEach(f => {
+          oldVariations.push({ name: f.trim(), price: product.price });
+        });
+      } else {
+        oldVariations.push({ name: 'Única', price: product.price });
+      }
+      setEditVariations(oldVariations);
+    }
   };
 
   const handleUpdate = async (id) => {
+    if (editVariations.some(v => !v.name || !v.price)) {
+      alert('Preencha nome e preço para todas as variações.');
+      return;
+    }
     try {
       const res = await apiFetch(`/api/products/${id}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-           
-        },
-        body: JSON.stringify({ name: editName, description: editDescription, price: editPrice, category: editCategory, has_flavors: editHasFlavors, flavors: editFlavors })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editName, description: editDescription, category: editCategory, variations: editVariations })
       });
       if (res.ok) {
         setEditingId(null);
@@ -97,6 +100,22 @@ function Products({ token }) {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleAddVariation = () => setVariations([...variations, { name: '', price: '' }]);
+  const handleRemoveVariation = (index) => setVariations(variations.filter((_, i) => i !== index));
+  const handleVariationChange = (index, field, value) => {
+    const newVars = [...variations];
+    newVars[index][field] = value;
+    setVariations(newVars);
+  };
+
+  const handleAddEditVariation = () => setEditVariations([...editVariations, { name: '', price: '' }]);
+  const handleRemoveEditVariation = (index) => setEditVariations(editVariations.filter((_, i) => i !== index));
+  const handleEditVariationChange = (index, field, value) => {
+    const newVars = [...editVariations];
+    newVars[index][field] = value;
+    setEditVariations(newVars);
   };
 
   return (
@@ -108,22 +127,25 @@ function Products({ token }) {
         <form onSubmit={handleSubmit} className="inline-form">
           <input type="text" placeholder="Nome do Produto" value={name} onChange={e => setName(e.target.value)} required />
           <input type="text" placeholder="Descrição" value={description} onChange={e => setDescription(e.target.value)} />
-          <input type="number" step="0.01" placeholder="Preço" value={price} onChange={e => setPrice(e.target.value)} required />
           <select value={category} onChange={e => setCategory(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
             <option value="Salgados">Salgados</option>
             <option value="Doces">Doces</option>
             <option value="Bebidas">Bebidas</option>
             <option value="Outros">Outros</option>
           </select>
-          <div style={{ width: '100%', marginBottom: '10px', marginTop: '10px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={hasFlavors} onChange={e => setHasFlavors(e.target.checked)} />
-              Este produto tem opções de sabor?
-            </label>
+          <div style={{ width: '100%', marginTop: '15px' }}>
+            <h4 style={{ margin: '0 0 10px 0' }}>Variações (SKUs)</h4>
+            {variations.map((v, index) => (
+              <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <input type="text" placeholder="Nome (Ex: Pedaço, Inteiro)" value={v.name} onChange={e => handleVariationChange(index, 'name', e.target.value)} required style={{ flex: 2 }} />
+                <input type="number" step="0.01" placeholder="Preço" value={v.price} onChange={e => handleVariationChange(index, 'price', e.target.value)} required style={{ flex: 1 }} />
+                {variations.length > 1 && (
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => handleRemoveVariation(index)}>X</button>
+                )}
+              </div>
+            ))}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddVariation} style={{ marginBottom: '10px' }}>+ Adicionar Variação</button>
           </div>
-          {hasFlavors && (
-            <input type="text" placeholder="Sabores (separados por vírgula. Ex: Frango, Calabresa)" value={flavors} onChange={e => setFlavors(e.target.value)} required style={{ width: '100%', marginBottom: '10px' }} />
-          )}
           <button type="submit" className="btn btn-primary">Adicionar</button>
         </form>
       </div>
@@ -144,7 +166,7 @@ function Products({ token }) {
                   <tr>
                     <th>Nome</th>
                     <th>Descrição</th>
-                    <th>Preço</th>
+                    <th>Preço / Variações</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -155,23 +177,25 @@ function Products({ token }) {
                         <>
                           <td>
                             <input type="text" value={editName} onChange={e => setEditName(e.target.value)} style={{width: '100%', marginBottom: '5px'}} />
-                            <label style={{ fontSize: '0.8em', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <input type="checkbox" checked={editHasFlavors} onChange={e => setEditHasFlavors(e.target.checked)} />
-                              Tem Sabores?
-                            </label>
-                            {editHasFlavors && (
-                              <input type="text" value={editFlavors} onChange={e => setEditFlavors(e.target.value)} placeholder="Sabor 1, Sabor 2" style={{width: '100%', fontSize: '0.8em', marginTop: '5px'}} />
-                            )}
-                          </td>
-                          <td><input type="text" value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{width: '100%'}} /></td>
-                          <td>
-                            <input type="number" step="0.01" value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{width: '70px', marginBottom: '5px'}} />
                             <select value={editCategory} onChange={e => setEditCategory(e.target.value)} style={{width: '100%', padding: '2px'}}>
                               <option value="Salgados">Salgados</option>
                               <option value="Doces">Doces</option>
                               <option value="Bebidas">Bebidas</option>
                               <option value="Outros">Outros</option>
                             </select>
+                          </td>
+                          <td><input type="text" value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{width: '100%'}} /></td>
+                          <td>
+                            {editVariations.map((v, index) => (
+                              <div key={index} style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
+                                <input type="text" value={v.name} onChange={e => handleEditVariationChange(index, 'name', e.target.value)} placeholder="Variação" style={{flex: 1, fontSize: '0.8em', padding: '2px'}} required />
+                                <input type="number" step="0.01" value={v.price} onChange={e => handleEditVariationChange(index, 'price', e.target.value)} placeholder="Preço" style={{width: '60px', fontSize: '0.8em', padding: '2px'}} required />
+                                {editVariations.length > 1 && (
+                                  <button type="button" style={{background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: '0 5px'}} onClick={() => handleRemoveEditVariation(index)}>x</button>
+                                )}
+                              </div>
+                            ))}
+                            <button type="button" onClick={handleAddEditVariation} style={{background: '#eee', border: '1px solid #ccc', fontSize: '0.8em', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer'}}>+ Add</button>
                           </td>
                           <td>
                             <button className="btn btn-primary btn-sm" style={{ marginRight: '5px', marginBottom: '5px' }} onClick={() => handleUpdate(p.id)}>Salvar</button>
@@ -180,9 +204,21 @@ function Products({ token }) {
                         </>
                       ) : (
                         <>
-                          <td>{p.name} {p.has_flavors && <div style={{fontSize: '0.8em', color: '#666', marginTop: '4px'}}>Sabores: {p.flavors}</div>}</td>
+                          <td>{p.name}</td>
                           <td>{p.description}</td>
-                          <td>R$ {p.price}</td>
+                          <td>
+                            {p.variations && p.variations.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {p.variations.map(v => (
+                                  <span key={v.id} style={{ fontSize: '0.85em', background: '#e9ecef', padding: '3px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    {v.name}: <strong>R$ {v.price}</strong>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span>R$ {p.price} <small>(Legado)</small></span>
+                            )}
+                          </td>
                           <td>
                             <button className="btn btn-sm" style={{ backgroundColor: '#17a2b8', color: 'white', marginRight: '5px' }} onClick={() => handleEdit(p)}>Editar</button>
                             <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Excluir</button>

@@ -13,14 +13,14 @@ function Orders({ token }) {
   const [paymentMethod, setPaymentMethod] = useState('Cartão de Crédito');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
-  const [flavor, setFlavor] = useState('');
+  const [variationId, setVariationId] = useState('');
   const [discount, setDiscount] = useState(0);
   const [addition, setAddition] = useState(0);
   const [additionDescription, setAdditionDescription] = useState('');
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [editProductId, setEditProductId] = useState('');
   const [editQuantity, setEditQuantity] = useState(1);
-  const [editFlavor, setEditFlavor] = useState('');
+  const [editVariationId, setEditVariationId] = useState('');
   const [editDiscount, setEditDiscount] = useState(0);
   const [editAddition, setEditAddition] = useState(0);
   const [editAdditionDescription, setEditAdditionDescription] = useState('');
@@ -73,17 +73,27 @@ function Orders({ token }) {
     const product = products.find(p => p.id === selectedProduct.value);
     if (!product) return;
     
-    if (product.has_flavors && !flavor) {
-      alert('Por favor, selecione um sabor.');
-      return;
+    let itemPrice = product.price || 0;
+    let selectedVariation = null;
+
+    if (product.variations && product.variations.length > 0) {
+      if (!variationId) {
+        alert('Por favor, selecione uma opção.');
+        return;
+      }
+      selectedVariation = product.variations.find(v => v.id === parseInt(variationId));
+      if (selectedVariation) {
+        itemPrice = selectedVariation.price;
+      }
     }
 
-    const item_total = (product.price * quantity) - discount + addition;
+    const item_total = (itemPrice * quantity) - discount + addition;
     setCart([...cart, {
       product_id: product.id,
       product_name: product.name,
       quantity,
-      flavor,
+      flavor: selectedVariation ? selectedVariation.name : '',
+      variation_id: selectedVariation ? selectedVariation.id : null,
       discount,
       addition,
       addition_description: additionDescription,
@@ -92,7 +102,7 @@ function Orders({ token }) {
 
     setSelectedProduct(null);
     setQuantity(1);
-    setFlavor('');
+    setVariationId('');
     setDiscount(0);
     setAddition(0);
     setAdditionDescription('');
@@ -126,7 +136,8 @@ function Orders({ token }) {
             payment_method: paymentMethod, 
             delivery_date: deliveryDate, 
             delivery_time: deliveryTime, 
-            flavor: item.flavor, 
+            flavor: item.flavor,
+            variation_id: item.variation_id,
             discount: item.discount, 
             addition: item.addition, 
             addition_description: item.addition_description 
@@ -184,7 +195,7 @@ function Orders({ token }) {
     setEditingOrderId(order.id);
     setEditProductId(order.product_id || '');
     setEditQuantity(order.quantity || 1);
-    setEditFlavor(order.flavor || '');
+    setEditVariationId(order.variation_id || '');
     setEditDiscount(parseFloat(order.discount) || 0);
     setEditAddition(parseFloat(order.addition) || 0);
     setEditAdditionDescription(order.addition_description || '');
@@ -197,7 +208,15 @@ function Orders({ token }) {
   const handleSaveOrderEdit = async (id) => {
     const product = products.find(p => p.id === parseInt(editProductId));
     if (!product) return;
-    const total_price = (product.price * editQuantity) - editDiscount + editAddition;
+    
+    let itemPrice = product.price || 0;
+    let selectedVariation = null;
+    if (product.variations && product.variations.length > 0 && editVariationId) {
+      selectedVariation = product.variations.find(v => v.id === parseInt(editVariationId));
+      if (selectedVariation) itemPrice = selectedVariation.price;
+    }
+
+    const total_price = (itemPrice * editQuantity) - editDiscount + editAddition;
 
     try {
       const res = await apiFetch(`/api/orders/${id}`, {
@@ -208,7 +227,8 @@ function Orders({ token }) {
         body: JSON.stringify({ 
           product_id: editProductId, 
           quantity: editQuantity, 
-          flavor: editFlavor, 
+          flavor: selectedVariation ? selectedVariation.name : '', 
+          variation_id: editVariationId || null,
           discount: editDiscount, 
           addition: editAddition, 
           addition_description: editAdditionDescription, 
@@ -267,20 +287,24 @@ function Orders({ token }) {
               <label>Produto</label>
               <Select
                 value={selectedProduct}
-                onChange={option => { setSelectedProduct(option); setFlavor(''); }}
-                options={products.map(p => ({ value: p.id, label: `${p.name} - R$ ${p.price}` }))}
+                onChange={option => { setSelectedProduct(option); setVariationId(''); }}
+                options={products.map(p => {
+                  let lbl = p.name;
+                  if (!p.variations || p.variations.length === 0) lbl += ` - R$ ${p.price}`;
+                  return { value: p.id, label: lbl };
+                })}
                 placeholder="Pesquise o produto..."
                 isClearable
                 styles={{ container: (base) => ({ ...base, marginBottom: '15px' }) }}
               />
               
-              {selectedProduct && products.find(p => p.id === selectedProduct.value)?.has_flavors && (
+              {selectedProduct && products.find(p => p.id === selectedProduct.value)?.variations?.length > 0 && (
                 <>
-                  <label>Sabor</label>
-                  <select value={flavor} onChange={e => setFlavor(e.target.value)} required style={{ padding: '10px', width: '100%', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}>
-                    <option value="">Selecione o sabor...</option>
-                    {products.find(p => p.id === selectedProduct.value).flavors.split(',').map((f, i) => (
-                      <option key={i} value={f.trim()}>{f.trim()}</option>
+                  <label>Variação / Opção</label>
+                  <select value={variationId} onChange={e => setVariationId(e.target.value)} required style={{ padding: '10px', width: '100%', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}>
+                    <option value="">Selecione a opção...</option>
+                    {products.find(p => p.id === selectedProduct.value).variations.map(v => (
+                      <option key={v.id} value={v.id}>{v.name} - R$ {v.price}</option>
                     ))}
                   </select>
                 </>
@@ -401,16 +425,16 @@ function Orders({ token }) {
                       <div key={o.id} style={{ border: '1px solid #eee', padding: '10px', borderRadius: '5px', marginBottom: '10px' }}>
                         {editingOrderId === o.id ? (
                           <>
-                            <select value={editProductId} onChange={e => { setEditProductId(e.target.value); setEditFlavor(''); }} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
+                            <select value={editProductId} onChange={e => { setEditProductId(e.target.value); setEditVariationId(''); }} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
                               <option value="">Selecione um produto...</option>
-                              {products.map(p => <option key={p.id} value={p.id}>{p.name} - R$ {p.price}</option>)}
+                              {products.map(p => <option key={p.id} value={p.id}>{p.name} {(!p.variations || p.variations.length === 0) ? `- R$ ${p.price}` : ''}</option>)}
                             </select>
                             
-                            {editProductId && products.find(p => p.id === parseInt(editProductId))?.has_flavors && (
-                              <select value={editFlavor} onChange={e => setEditFlavor(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
-                                <option value="">Sabor...</option>
-                                {products.find(p => p.id === parseInt(editProductId)).flavors.split(',').map((f, i) => (
-                                  <option key={i} value={f.trim()}>{f.trim()}</option>
+                            {editProductId && products.find(p => p.id === parseInt(editProductId))?.variations?.length > 0 && (
+                              <select value={editVariationId} onChange={e => setEditVariationId(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
+                                <option value="">Variação...</option>
+                                {products.find(p => p.id === parseInt(editProductId)).variations.map(v => (
+                                  <option key={v.id} value={v.id}>{v.name} - R$ {v.price}</option>
                                 ))}
                               </select>
                             )}
