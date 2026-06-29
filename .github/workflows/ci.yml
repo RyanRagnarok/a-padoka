@@ -1,4 +1,4 @@
-name: Padoka CI (Validação e Build)
+name: Padoka CI/CD
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
 jobs:
   validacao-build:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout do código
       uses: actions/checkout@v4
@@ -31,3 +30,22 @@ jobs:
 
     - name: Teste de Build do Docker Compose
       run: docker compose build
+
+  deploy:
+    needs: validacao-build 
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Baixar código atualizado
+      uses: actions/checkout@v4
+
+    - name: Configurar variáveis de ambiente (.env)
+      shell: pwsh
+      run: |
+        "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" | Out-File -FilePath .env -Encoding utf8
+        "JWT_SECRET=${{ secrets.JWT_SECRET }}" | Out-File -FilePath .env -Encoding utf8 -Append
+        "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | Out-File -FilePath .env -Encoding utf8 -Append
+
+    - name: Recriar containers (Deploy)
+      run: docker compose up -d --build
