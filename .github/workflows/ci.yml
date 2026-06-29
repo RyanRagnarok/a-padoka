@@ -39,9 +39,8 @@ jobs:
     steps:
     - name: Baixar código atualizado
       uses: actions/checkout@v4
-
-    - name: Configurar variáveis de ambiente (.env)
-      shell: pwsh
+    - name: 🔐 Configurar variáveis de ambiente (.env)
+      shell: powershell
       run: |
         "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" | Out-File -FilePath .env -Encoding utf8
         "JWT_SECRET=${{ secrets.JWT_SECRET }}" | Out-File -FilePath .env -Encoding utf8 -Append

@@ -12,7 +12,8 @@ function Finance({ token }) {
     byMonth: [],
     byProduct: [],
     allProducts: [],
-    byDay: []
+    byDay: [],
+    byCategoryCost: []
   });
 
   useEffect(() => {
@@ -194,6 +195,24 @@ function Finance({ token }) {
   };
   const dailySeries = [{ name: 'Faturamento', data: (data.byDay || []).map(d => d.total) }];
 
+  // Chart 7: Custo Médio Teórico por Categoria
+  const categoryCostOptions = {
+    chart: { type: 'bar', toolbar: { show: false } },
+    plotOptions: { bar: { horizontal: false, borderRadius: 4, columnWidth: '50%' } },
+    colors: ['#8B5CF6'], // Purple
+    dataLabels: { enabled: true, formatter: (val) => formatCurrency(val) },
+    xaxis: {
+      categories: (data.byCategoryCost || []).map(c => c.name),
+    },
+    yaxis: {
+      labels: { formatter: (val) => formatCurrency(val) }
+    },
+    tooltip: {
+      y: { formatter: (val) => formatCurrency(val) }
+    }
+  };
+  const categoryCostSeries = [{ name: 'Custo Médio (Ficha Técnica)', data: (data.byCategoryCost || []).map(c => c.cost) }];
+
   return (
     <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: 'transparent', boxShadow: 'none', padding: '10px' }}>
       <h2 style={{ marginBottom: '30px' }}>📊 Dashboard Financeiro (DRE & KPIs)</h2>
@@ -273,6 +292,15 @@ function Finance({ token }) {
             <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>Nenhuma venda registrada.</div>
           ) : (
             <Chart options={dailyOptions} series={dailySeries} type="bar" height={400} />
+          )}
+        </div>
+
+        <div className="card" style={{ gridColumn: '1 / -1' }}>
+          <h3 style={{ marginTop: 0, color: '#374151' }}>Custo Médio por Categoria (Ficha Técnica)</h3>
+          {!(data.byCategoryCost && data.byCategoryCost.length > 0) ? (
+            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>Nenhuma ficha técnica registrada.</div>
+          ) : (
+            <Chart options={categoryCostOptions} series={categoryCostSeries} type="bar" height={300} />
           )}
         </div>
 

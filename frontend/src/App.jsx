@@ -8,6 +8,7 @@ import Orders from './pages/Orders';
 import Finance from './pages/Finance';
 import CashFlow from './pages/CashFlow';
 import Settings from './pages/Settings';
+import Recipes from './pages/Recipes';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -40,6 +41,7 @@ function App() {
             <Link to="/">Início</Link>
             <Link to="/pedidos">Pedidos</Link>
             <Link to="/produtos">Produtos</Link>
+            <Link to="/receitas">Receitas & Fichas</Link>
             <Link to="/clientes">Clientes</Link>
             <Link to="/fluxo-caixa">Fluxo de Caixa</Link>
             <Link to="/financeiro">DRE & KPIs</Link>
@@ -53,6 +55,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/pedidos" element={<Orders token={token} />} />
             <Route path="/produtos" element={<Products token={token} />} />
+            <Route path="/receitas" element={<Recipes token={token} />} />
             <Route path="/clientes" element={<Clients token={token} />} />
             <Route path="/fluxo-caixa" element={<CashFlow token={token} />} />
             <Route path="/financeiro" element={<Finance token={token} />} />

@@ -75,6 +75,19 @@ async function initDb() {
         amount NUMERIC(10, 2) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS ingredientes (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        unit VARCHAR(20) NOT NULL,
+        cost_per_unit NUMERIC(10, 4) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS ficha_tecnica (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+        ingredient_id INTEGER REFERENCES ingredientes(id) ON DELETE CASCADE,
+        quantity NUMERIC(10, 4) NOT NULL
+      );
     `);
 
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT \'Outros\';');
@@ -369,6 +382,88 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Ingredients CRUD
+app.get('/api/ingredientes', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM ingredientes ORDER BY name ASC');
+    res.json(rows);
+  } catch (err) {
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
+app.post('/api/ingredientes', authenticateToken, async (req, res) => {
+  const { name, unit, cost_per_unit } = req.body;
+  try {
+    const { rows } = await pool.query('INSERT INTO ingredientes (name, unit, cost_per_unit) VALUES ($1, $2, $3) RETURNING *', [name, unit, cost_per_unit]);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
+app.put('/api/ingredientes/:id', authenticateToken, async (req, res) => {
+  const { name, unit, cost_per_unit } = req.body;
+  try {
+    await pool.query('UPDATE ingredientes SET name = $1, unit = $2, cost_per_unit = $3 WHERE id = $4', [name, unit, cost_per_unit, req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
+app.delete('/api/ingredientes/:id', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM ingredientes WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
+// Ficha Tecnica
+app.get('/api/products/:id/ficha-tecnica', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT f.id, f.ingredient_id, f.quantity, i.name as ingredient_name, i.unit, i.cost_per_unit 
+      FROM ficha_tecnica f
+      JOIN ingredientes i ON f.ingredient_id = i.id
+      WHERE f.product_id = $1
+    `, [req.params.id]);
+    
+    const total_cost = rows.reduce((acc, curr) => acc + (parseFloat(curr.quantity) * parseFloat(curr.cost_per_unit)), 0);
+    
+    res.json({ ingredients: rows, total_cost });
+  } catch (err) {
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
+app.post('/api/products/:id/ficha-tecnica', authenticateToken, async (req, res) => {
+  const { ingredients } = req.body; // array of { ingredient_id, quantity }
+  const product_id = req.params.id;
+  try {
+    await pool.query('BEGIN');
+    await pool.query('DELETE FROM ficha_tecnica WHERE product_id = $1', [product_id]);
+    
+    for (const item of ingredients) {
+      await pool.query('INSERT INTO ficha_tecnica (product_id, ingredient_id, quantity) VALUES ($1, $2, $3)', [product_id, item.ingredient_id, item.quantity]);
+    }
+    
+    await pool.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    console.error('[ERRO]:', err);
+    res.status(500).json({ message: 'Erro interno no servidor' });
+  }
+});
+
 // Transactions (Fluxo de Caixa)
 app.get('/api/transactions', authenticateToken, async (req, res) => {
   try {
@@ -605,6 +700,22 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
     });
     const byDay = Object.values(dailyMap).sort((a,b) => a.date.localeCompare(b.date));
 
+    // Average Cost by Category (Theoretical from Ficha Tecnica)
+    const categoryCostResult = await pool.query(`
+      SELECT p.category, 
+             AVG(
+               COALESCE((
+                 SELECT SUM(f.quantity * i.cost_per_unit)
+                 FROM ficha_tecnica f
+                 JOIN ingredientes i ON f.ingredient_id = i.id
+                 WHERE f.product_id = p.id
+               ), 0)
+             ) as avg_cost
+      FROM products p
+      GROUP BY p.category
+    `);
+    const byCategoryCost = categoryCostResult.rows.map(row => ({ name: row.category, cost: parseFloat(row.avg_cost) }));
+
     res.json({
       gross_revenue: total_gross_revenue,
       total_costs,
@@ -614,7 +725,8 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
       byMonth,
       byProduct: productResult.rows.map(row => ({ name: row.name, value: parseFloat(row.value), quantity: parseInt(row.quantity) })),
       allProducts: allProductsResult.rows.map(row => ({ name: row.name, quantity: parseInt(row.quantity) })),
-      byDay
+      byDay,
+      byCategoryCost
     });
   } catch (err) {
     console.error('[ERRO]:', err);
