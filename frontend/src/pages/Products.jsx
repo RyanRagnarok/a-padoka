@@ -26,7 +26,10 @@ function Products({ token }) {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('');
-  const [editVariations, setEditVariations] = useState([{ name: '', price: '' }]);
+  const [editVariations, setEditVariations] = useState([]);
+  const [tempEditSize, setTempEditSize] = useState('Pedaço Comum');
+  const [tempEditFlavor, setTempEditFlavor] = useState('');
+  const [tempEditPrice, setTempEditPrice] = useState('');
 
   const fetchProducts = async () => {
     try {
@@ -124,7 +127,16 @@ function Products({ token }) {
     setVariations(newVars);
   };
 
-  const handleAddEditVariation = () => setEditVariations([...editVariations, { name: '', price: '' }]);
+  const handleAddEditVariation = () => {
+    if (!tempEditFlavor || !tempEditPrice) {
+      alert("Preencha o sabor e o preço!");
+      return;
+    }
+    const fullName = `${tempEditSize} - ${tempEditFlavor}`;
+    setEditVariations([...editVariations, { name: fullName, price: parseFloat(tempEditPrice) }]);
+    setTempEditFlavor('');
+    setTempEditPrice('');
+  };
   const handleRemoveEditVariation = (index) => setEditVariations(editVariations.filter((_, i) => i !== index));
   const handleEditVariationChange = (index, field, value) => {
     const newVars = [...editVariations];
@@ -242,12 +254,44 @@ function Products({ token }) {
                               <div key={index} style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
                                 <input type="text" value={v.name} onChange={e => handleEditVariationChange(index, 'name', e.target.value)} placeholder="Variação" style={{flex: 1, fontSize: '0.8em', padding: '2px'}} required />
                                 <input type="number" step="0.01" value={v.price} onChange={e => handleEditVariationChange(index, 'price', e.target.value)} placeholder="Preço" style={{width: '60px', fontSize: '0.8em', padding: '2px'}} required />
-                                {editVariations.length > 1 && (
-                                  <button type="button" style={{background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: '0 5px'}} onClick={() => handleRemoveEditVariation(index)}>x</button>
-                                )}
+                                <button type="button" style={{background: 'none', border: 'none', color: 'red', cursor: 'pointer', padding: '0 5px'}} onClick={() => handleRemoveEditVariation(index)}>x</button>
                               </div>
                             ))}
-                            <button type="button" onClick={handleAddEditVariation} style={{background: '#eee', border: '1px solid #ccc', fontSize: '0.8em', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer'}}>+ Add</button>
+                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginTop: '10px' }}>
+                              <select 
+                                value={tempEditSize} 
+                                onChange={(e) => setTempEditSize(e.target.value)}
+                                style={{ padding: '2px', borderRadius: '3px', border: '1px solid #ccc', fontSize: '0.8em' }}
+                              >
+                                <option value="Pedaço Comum">Pedaço Comum</option>
+                                <option value="Pedaço Recheado">Pedaço Recheado</option>
+                                <option value="Inteiro Comum">Inteiro Comum</option>
+                                <option value="Inteiro Recheado">Inteiro Recheado</option>
+                                <option value="Mini">Mini</option>
+                              </select>
+                              <input 
+                                type="text" 
+                                placeholder="Sabor" 
+                                value={tempEditFlavor}
+                                onChange={(e) => setTempEditFlavor(e.target.value)}
+                                style={{ padding: '2px', borderRadius: '3px', border: '1px solid #ccc', flex: 1, fontSize: '0.8em' }}
+                              />
+                              <input 
+                                type="number" 
+                                step="0.01"
+                                placeholder="R$" 
+                                value={tempEditPrice}
+                                onChange={(e) => setTempEditPrice(e.target.value)}
+                                style={{ padding: '2px', borderRadius: '3px', border: '1px solid #ccc', width: '50px', fontSize: '0.8em' }}
+                              />
+                              <button 
+                                type="button" 
+                                onClick={handleAddEditVariation}
+                                style={{ padding: '2px 5px', backgroundColor: '#f0ad4e', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8em' }}
+                              >
+                                + Add
+                              </button>
+                            </div>
                           </td>
                           <td>
                             <button className="btn btn-primary btn-sm" style={{ marginRight: '5px', marginBottom: '5px' }} onClick={() => handleUpdate(p.id)}>Salvar</button>
