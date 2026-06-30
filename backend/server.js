@@ -770,6 +770,14 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
     `);
     const byCategoryCost = categoryCostResult.rows.map(row => ({ name: row.category, cost: parseFloat(row.avg_cost) }));
 
+    const paymentMethodResult = await pool.query(`
+      SELECT payment_method as name, SUM(total_price) as value
+      FROM orders
+      WHERE status = 'Entregue' OR is_paid = true
+      GROUP BY payment_method
+    `);
+    const byPaymentMethod = paymentMethodResult.rows.map(row => ({ name: row.name || 'Não Informado', value: parseFloat(row.value) }));
+
     res.json({
       gross_revenue: total_gross_revenue,
       total_taxas,
@@ -781,7 +789,8 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
       byProduct: productResult.rows.map(row => ({ name: row.name, value: parseFloat(row.value), quantity: parseInt(row.quantity) })),
       allProducts: allProductsResult.rows.map(row => ({ name: row.name, quantity: parseInt(row.quantity) })),
       byDay,
-      byCategoryCost
+      byCategoryCost,
+      byPaymentMethod
     });
   } catch (err) {
     console.error('[ERRO]:', err);

@@ -14,7 +14,8 @@ function Finance({ token }) {
     byProduct: [],
     allProducts: [],
     byDay: [],
-    byCategoryCost: []
+    byCategoryCost: [],
+    byPaymentMethod: []
   });
 
   useEffect(() => {
@@ -214,6 +215,24 @@ function Finance({ token }) {
   };
   const categoryCostSeries = [{ name: 'Custo Médio (Ficha Técnica)', data: (data.byCategoryCost || []).map(c => c.cost) }];
 
+  // Chart 8: Entradas por Canal (Payment Methods)
+  const paymentMethodOptions = {
+    chart: { type: 'donut' },
+    labels: (data.byPaymentMethod || []).map(p => p.name),
+    colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
+    tooltip: {
+      y: { formatter: (val) => formatCurrency(val) }
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val, opts) => {
+        const name = opts.w.globals.labels[opts.seriesIndex];
+        return `${name}`;
+      }
+    }
+  };
+  const paymentMethodSeries = (data.byPaymentMethod || []).map(p => p.value);
+
   return (
     <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: 'transparent', boxShadow: 'none', padding: '10px' }}>
       <h2 style={{ marginBottom: '30px' }}>📊 Dashboard Financeiro (DRE & KPIs)</h2>
@@ -275,6 +294,15 @@ function Finance({ token }) {
             </div>
           ) : (
             <Chart options={lineChartOptions} series={lineChartSeries} type="line" height={300} />
+          )}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginTop: 0, color: '#374151' }}>Entradas por Canal (Forma de Pagamento)</h3>
+          {!(data.byPaymentMethod && data.byPaymentMethod.length > 0) ? (
+            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>Nenhuma venda registrada.</div>
+          ) : (
+            <Chart options={paymentMethodOptions} series={paymentMethodSeries} type="donut" height={300} />
           )}
         </div>
 

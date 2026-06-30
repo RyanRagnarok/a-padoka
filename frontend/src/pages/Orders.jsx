@@ -10,7 +10,7 @@ function Orders({ token }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('Dinheiro/Pix');
+  const [paymentMethod, setPaymentMethod] = useState('Pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [variationId, setVariationId] = useState('');
@@ -298,8 +298,8 @@ function Orders({ token }) {
           <select value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
             <option value="Cartão de Crédito">Cartão de Crédito</option>
             <option value="Cartão de Débito">Cartão de Débito</option>
-            <option value="PIX">PIX</option>
-            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix (Transferência)</option>
+            <option value="Dinheiro">Dinheiro (Espécie)</option>
           </select>
           <input type="date" value={editDeliveryDate} onChange={e => setEditDeliveryDate(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
           <input type="time" value={editDeliveryTime} onChange={e => setEditDeliveryTime(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
@@ -461,7 +461,8 @@ function Orders({ token }) {
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   style={{ padding: '10px', width: '100%', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' }}
                 >
-                  <option value="Dinheiro/Pix">Dinheiro / Pix (Sem taxa)</option>
+                  <option value="Dinheiro">Dinheiro (Espécie)</option>
+                  <option value="Pix">Pix (Transferência)</option>
                   <option value="Débito">Cartão de Débito (0,89% retido)</option>
                   <option value="Crédito">Cartão de Crédito (3,09% retido)</option>
                 </select>
