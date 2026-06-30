@@ -10,7 +10,7 @@ function Orders({ token }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('Cartão de Crédito');
+  const [paymentMethod, setPaymentMethod] = useState('Dinheiro/Pix');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [variationId, setVariationId] = useState('');
@@ -115,6 +115,12 @@ function Orders({ token }) {
     setCart(newCart);
   };
 
+  const calculateFee = (sub, method) => {
+    if (method === 'Débito') return sub * 0.0089;
+    if (method === 'Crédito') return sub * 0.0309;
+    return 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (cart.length === 0) {
@@ -135,6 +141,7 @@ function Orders({ token }) {
             quantity: item.quantity, 
             total_price: item.total_price, 
             payment_method: paymentMethod, 
+            card_fee: calculateFee(item.total_price, paymentMethod),
             delivery_date: deliveryDate, 
             delivery_time: deliveryTime, 
             flavor: item.flavor,
@@ -347,6 +354,10 @@ function Orders({ token }) {
 
   const pendingOrders = orders.filter(order => order.status !== 'Entregue' && order.status !== 'Cancelado');
 
+  const subtotal = cart.reduce((acc, item) => acc + item.total_price, 0);
+  const fee = calculateFee(subtotal, paymentMethod);
+  const netValue = subtotal - fee;
+
   return (
     <div className="page-container">
       <h2>📦 Registrar Pedido / Venda</h2>
@@ -441,13 +452,40 @@ function Orders({ token }) {
                 styles={{ container: (base) => ({ ...base, marginBottom: '15px' }) }}
               />
 
-              <label>Método de Pagamento</label>
-              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required style={{ padding: '10px', width: '100%', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}>
-                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                <option value="Cartão de Débito">Cartão de Débito</option>
-                <option value="PIX">PIX</option>
-                <option value="Dinheiro">Dinheiro</option>
-              </select>
+              <div style={{ padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', marginBottom: '15px' }}>
+                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>
+                  Forma de Pagamento:
+                </label>
+                <select 
+                  value={paymentMethod} 
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ padding: '10px', width: '100%', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' }}
+                >
+                  <option value="Dinheiro/Pix">Dinheiro / Pix (Sem taxa)</option>
+                  <option value="Débito">Cartão de Débito (0,89% retido)</option>
+                  <option value="Crédito">Cartão de Crédito (3,09% retido)</option>
+                </select>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '1.1em' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1.3em' }}>
+                    <span>Cobrar na Maquininha:</span>
+                    <span>R$ {subtotal.toFixed(2)}</span>
+                  </div>
+                  
+                  {fee > 0 && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d9534f', borderTop: '1px solid #eee', paddingTop: '8px' }}>
+                        <span>Desconto da Maquininha:</span>
+                        <span>- R$ {fee.toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#28a745', fontWeight: 'bold' }}>
+                        <span>Valor Líquido (Padoka):</span>
+                        <span>R$ {netValue.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
               <label>Data de Entrega</label>
               <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} required style={{ padding: '10px', width: '100%', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} />

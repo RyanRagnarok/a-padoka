@@ -111,6 +111,7 @@ async function initDb() {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS variation_id INTEGER REFERENCES product_variations(id) ON DELETE SET NULL;');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS card_fee NUMERIC(10, 2) DEFAULT 0;');
     await pool.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS details JSONB;');
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;');
     await pool.query('ALTER TABLE product_variations ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;');
@@ -363,11 +364,11 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/orders', authenticateToken, async (req, res) => {
-  const { product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, flavor, discount, addition, addition_description, variation_id } = req.body;
+  const { product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, flavor, discount, addition, addition_description, variation_id, card_fee } = req.body;
   try {
     const { rows } = await pool.query(
-      'INSERT INTO orders (product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, status, flavor, discount, addition, addition_description, variation_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
-      [product_id, client_id || null, quantity, total_price, payment_method, delivery_date, delivery_time, 'Pendente', flavor, discount || 0, addition || 0, addition_description || '', variation_id || null]
+      'INSERT INTO orders (product_id, client_id, quantity, total_price, payment_method, delivery_date, delivery_time, status, flavor, discount, addition, addition_description, variation_id, card_fee) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *',
+      [product_id, client_id || null, quantity, total_price, payment_method, delivery_date, delivery_time, 'Pendente', flavor, discount || 0, addition || 0, addition_description || '', variation_id || null, card_fee || 0]
     );
     res.json(rows[0]);
   } catch (err) {
