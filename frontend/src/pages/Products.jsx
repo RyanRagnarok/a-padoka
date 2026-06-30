@@ -6,7 +6,22 @@ function Products({ token }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Salgados');
-  const [variations, setVariations] = useState([{ name: '', price: '' }]);
+  const [variations, setVariations] = useState([]);
+  const [tempSize, setTempSize] = useState('Pedaço Comum');
+  const [tempFlavor, setTempFlavor] = useState('');
+  const [tempPrice, setTempPrice] = useState('');
+
+  const handleAddVariation = () => {
+    if (!tempFlavor || !tempPrice) {
+      alert("Preencha o sabor e o preço!");
+      return;
+    }
+    const fullName = `${tempSize} - ${tempFlavor}`;
+    setVariations([...variations, { name: fullName, price: parseFloat(tempPrice) }]);
+    setTempFlavor('');
+    setTempPrice('');
+  };
+
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -45,7 +60,7 @@ function Products({ token }) {
         setName('');
         setDescription('');
         setCategory('Salgados');
-        setVariations([{ name: '', price: '' }]);
+        setVariations([]);
         fetchProducts();
       }
     } catch (err) {
@@ -102,7 +117,6 @@ function Products({ token }) {
     }
   };
 
-  const handleAddVariation = () => setVariations([...variations, { name: '', price: '' }]);
   const handleRemoveVariation = (index) => setVariations(variations.filter((_, i) => i !== index));
   const handleVariationChange = (index, field, value) => {
     const newVars = [...variations];
@@ -135,16 +149,54 @@ function Products({ token }) {
           </select>
           <div style={{ width: '100%', marginTop: '15px' }}>
             <h4 style={{ margin: '0 0 10px 0' }}>Variações (SKUs)</h4>
-            {variations.map((v, index) => (
-              <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                <input type="text" placeholder="Nome (Ex: Pedaço, Inteiro)" value={v.name} onChange={e => handleVariationChange(index, 'name', e.target.value)} required style={{ flex: 2 }} />
-                <input type="number" step="0.01" placeholder="Preço" value={v.price} onChange={e => handleVariationChange(index, 'price', e.target.value)} required style={{ flex: 1 }} />
-                {variations.length > 1 && (
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => handleRemoveVariation(index)}>X</button>
-                )}
+            <div className="add-variation-section" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
+              <select 
+                value={tempSize} 
+                onChange={(e) => setTempSize(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              >
+                <option value="Pedaço Comum">Pedaço Comum</option>
+                <option value="Pedaço Recheado">Pedaço Recheado</option>
+                <option value="Inteiro Comum">Inteiro Comum</option>
+                <option value="Inteiro Recheado">Inteiro Recheado</option>
+                <option value="Mini">Mini</option>
+              </select>
+
+              <input 
+                type="text" 
+                placeholder="Sabor (Ex: Nutella)" 
+                value={tempFlavor}
+                onChange={(e) => setTempFlavor(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', flex: 1 }}
+              />
+
+              <input 
+                type="number" 
+                step="0.01"
+                placeholder="R$ 0,00" 
+                value={tempPrice}
+                onChange={(e) => setTempPrice(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '100px' }}
+              />
+
+              <button 
+                type="button" 
+                onClick={handleAddVariation}
+                style={{ padding: '8px 12px', backgroundColor: '#f0ad4e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                + Add
+              </button>
+            </div>
+            {variations.length > 0 && (
+              <div style={{ marginBottom: '15px' }}>
+                {variations.map((v, index) => (
+                  <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f9f9f9', border: '1px solid #eee', marginBottom: '5px', borderRadius: '4px' }}>
+                    <span>{v.name} - R$ {Number(v.price).toFixed(2)}</span>
+                    <button type="button" className="btn btn-danger btn-sm" onClick={() => handleRemoveVariation(index)}>X</button>
+                  </div>
+                ))}
               </div>
-            ))}
-            <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddVariation} style={{ marginBottom: '10px' }}>+ Adicionar Variação</button>
+            )}
           </div>
           <button type="submit" className="btn btn-primary">Adicionar</button>
         </form>
