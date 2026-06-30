@@ -28,6 +28,7 @@ function Orders({ token }) {
   const [editDeliveryDate, setEditDeliveryDate] = useState('');
   const [editDeliveryTime, setEditDeliveryTime] = useState('');
   const [expandedDates, setExpandedDates] = useState({});
+  const [activeTab, setActiveTab] = useState('pendentes');
 
   const toggleDate = (date) => {
     setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
@@ -259,6 +260,77 @@ function Orders({ token }) {
     }
   };
 
+  const renderOrderCard = (o) => (
+    <div key={o.id} style={{ border: '1px solid #eee', padding: '10px', borderRadius: '5px', marginBottom: '10px', background: '#fff' }}>
+      {editingOrderId === o.id ? (
+        <>
+          <select value={editProductId} onChange={e => { setEditProductId(e.target.value); setEditVariationId(''); }} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
+            <option value="">Selecione um produto...</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.name} {(!p.variations || p.variations.length === 0) ? `- R$ ${p.price}` : ''}</option>)}
+          </select>
+          
+          {editProductId && products.find(p => p.id === parseInt(editProductId))?.variations?.length > 0 && (
+            <select value={editVariationId} onChange={e => setEditVariationId(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
+              <option value="">Variação...</option>
+              {products.find(p => p.id === parseInt(editProductId)).variations.map(v => (
+                <option key={v.id} value={v.id}>{v.name} - R$ {v.price}</option>
+              ))}
+            </select>
+          )}
+
+          <div style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
+            <input type="number" min="1" value={editQuantity} onChange={e => setEditQuantity(parseInt(e.target.value))} placeholder="Qtd" title="Quantidade" style={{ flex: 1, padding: '5px' }} />
+            <input type="number" min="0" step="0.01" value={editDiscount} onChange={e => setEditDiscount(parseFloat(e.target.value) || 0)} placeholder="Desconto (R$)" title="Desconto (R$)" style={{ flex: 1, padding: '5px' }} />
+            <input type="number" min="0" step="0.01" value={editAddition} onChange={e => setEditAddition(parseFloat(e.target.value) || 0)} placeholder="Acréscimo (R$)" title="Acréscimo (R$)" style={{ flex: 1, padding: '5px' }} />
+          </div>
+
+          {editAddition > 0 && (
+            <input type="text" value={editAdditionDescription} onChange={e => setEditAdditionDescription(e.target.value)} placeholder="Descrição do Acréscimo" style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
+          )}
+
+          <select value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
+            <option value="Cartão de Crédito">Cartão de Crédito</option>
+            <option value="Cartão de Débito">Cartão de Débito</option>
+            <option value="PIX">PIX</option>
+            <option value="Dinheiro">Dinheiro</option>
+          </select>
+          <input type="date" value={editDeliveryDate} onChange={e => setEditDeliveryDate(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
+          <input type="time" value={editDeliveryTime} onChange={e => setEditDeliveryTime(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
+          <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
+            <button className="btn btn-primary btn-sm" style={{ flex: 1, margin: 0, padding: '5px' }} onClick={() => handleSaveOrderEdit(o.id)}>Salvar</button>
+            <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => setEditingOrderId(null)}>Cancelar</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <strong>{o.product_name} {o.flavor && `(${o.flavor})`}</strong> (Qtd: {o.quantity})<br/>
+          {o.client_name && <><small style={{color: '#0056b3'}}>👤 {o.client_name}</small><br/></>}
+          <small>Entrega: <strong style={{ color: '#d97706' }}>{o.delivery_date ? new Date(o.delivery_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'} às {o.delivery_time || 'N/A'}</strong></small><br/>
+          <small>Pagamento: {o.payment_method || 'N/A'}</small><br/>
+          {parseFloat(o.discount) > 0 && <><small style={{color: '#d9534f'}}>Desconto: R$ {o.discount}</small><br/></>}
+          {parseFloat(o.addition) > 0 && <><small style={{color: '#28a745'}}>Acréscimo: R$ {o.addition} ({o.addition_description})</small><br/></>}
+          <small><strong>Total: R$ {o.total_price}</strong></small><br/>
+          <div style={{ marginTop: '8px', padding: '5px', backgroundColor: o.is_paid ? '#d4edda' : '#f8d7da', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', border: o.is_paid ? '1px solid #c3e6cb' : '1px solid #f5c6cb' }}>
+            <input 
+              type="checkbox" 
+              checked={o.is_paid || false} 
+              onChange={() => togglePaymentStatus(o.id, o.is_paid)} 
+              style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+            />
+            <span style={{ fontSize: '0.9rem', color: o.is_paid ? '#155724' : '#721c24', fontWeight: 'bold' }}>
+              {o.is_paid ? '✅ Pagamento Confirmado' : '⚠️ Aguardando Pagamento'}
+            </span>
+          </div>
+          <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%' }} onClick={() => updateStatus(o.id, 'Entregue')}>Entregar</button>
+            <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => handleEditOrder(o)}>Editar</button>
+            <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => updateStatus(o.id, 'Cancelado')}>Cancelar</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   const groupedOrders = orders.reduce((acc, order) => {
     const dateStr = order.delivery_date ? order.delivery_date.split('T')[0] : 'Sem Data';
     if (!acc[dateStr]) acc[dateStr] = [];
@@ -272,6 +344,8 @@ function Orders({ token }) {
     if (b === 'Sem Data') return -1;
     return new Date(b) - new Date(a); 
   });
+
+  const pendingOrders = orders.filter(order => order.status !== 'Entregue' && order.status !== 'Cancelado');
 
   return (
     <div className="page-container">
@@ -388,10 +462,56 @@ function Orders({ token }) {
       </div>
 
       <div style={{ marginTop: '30px' }}>
-        <h3>Painel de Pedidos por Dia</h3>
-        {sortedDates.length === 0 && <p style={{ fontSize: '0.9rem', color: '#666' }}>Nenhum pedido registrado.</p>}
-        
-        {sortedDates.map(date => {
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+          <button 
+            onClick={() => setActiveTab('pendentes')}
+            style={{ 
+              padding: '10px 20px', 
+              border: 'none', 
+              backgroundColor: activeTab === 'pendentes' ? '#d97706' : 'transparent',
+              color: activeTab === 'pendentes' ? '#fff' : '#666',
+              fontWeight: 'bold',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Pendentes ({pendingOrders.length})
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('historico')}
+            style={{ 
+              padding: '10px 20px', 
+              border: 'none', 
+              backgroundColor: activeTab === 'historico' ? '#d97706' : 'transparent',
+              color: activeTab === 'historico' ? '#fff' : '#666',
+              fontWeight: 'bold',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Histórico por Dia
+          </button>
+        </div>
+
+        {activeTab === 'pendentes' && (
+          <div className="pending-orders-list">
+            {pendingOrders.length === 0 ? (
+               <p style={{ color: '#666', fontStyle: 'italic' }}>Nenhum pedido pendente! 🎉</p>
+            ) : (
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+                 {pendingOrders.map(order => renderOrderCard(order))}
+               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'historico' && (
+          <>
+            <h3>Painel de Pedidos por Dia</h3>
+            {sortedDates.length === 0 && <p style={{ fontSize: '0.9rem', color: '#666' }}>Nenhum pedido registrado.</p>}
+            
+            {sortedDates.map(date => {
           const dateOrders = groupedOrders[date];
           const isExpanded = expandedDates[date];
           const dateTitle = date === 'Sem Data' ? 'Sem Data Definida' : new Date(date + 'T12:00:00Z').toLocaleDateString('pt-BR');
@@ -421,76 +541,7 @@ function Orders({ token }) {
                     <h4 style={{ borderBottom: '2px solid #ffc107', paddingBottom: '10px' }}>
                       🟡 Pendentes ({dateOrders.filter(o => o.status === 'Pendente').length})
                     </h4>
-                    {dateOrders.filter(o => o.status === 'Pendente').map(o => (
-                      <div key={o.id} style={{ border: '1px solid #eee', padding: '10px', borderRadius: '5px', marginBottom: '10px' }}>
-                        {editingOrderId === o.id ? (
-                          <>
-                            <select value={editProductId} onChange={e => { setEditProductId(e.target.value); setEditVariationId(''); }} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
-                              <option value="">Selecione um produto...</option>
-                              {products.map(p => <option key={p.id} value={p.id}>{p.name} {(!p.variations || p.variations.length === 0) ? `- R$ ${p.price}` : ''}</option>)}
-                            </select>
-                            
-                            {editProductId && products.find(p => p.id === parseInt(editProductId))?.variations?.length > 0 && (
-                              <select value={editVariationId} onChange={e => setEditVariationId(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
-                                <option value="">Variação...</option>
-                                {products.find(p => p.id === parseInt(editProductId)).variations.map(v => (
-                                  <option key={v.id} value={v.id}>{v.name} - R$ {v.price}</option>
-                                ))}
-                              </select>
-                            )}
-
-                            <div style={{ display: 'flex', gap: '5px', marginBottom: '5px' }}>
-                              <input type="number" min="1" value={editQuantity} onChange={e => setEditQuantity(parseInt(e.target.value))} placeholder="Qtd" title="Quantidade" style={{ flex: 1, padding: '5px' }} />
-                              <input type="number" min="0" step="0.01" value={editDiscount} onChange={e => setEditDiscount(parseFloat(e.target.value) || 0)} placeholder="Desconto (R$)" title="Desconto (R$)" style={{ flex: 1, padding: '5px' }} />
-                              <input type="number" min="0" step="0.01" value={editAddition} onChange={e => setEditAddition(parseFloat(e.target.value) || 0)} placeholder="Acréscimo (R$)" title="Acréscimo (R$)" style={{ flex: 1, padding: '5px' }} />
-                            </div>
-
-                            {editAddition > 0 && (
-                              <input type="text" value={editAdditionDescription} onChange={e => setEditAdditionDescription(e.target.value)} placeholder="Descrição do Acréscimo" style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
-                            )}
-
-                            <select value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }}>
-                              <option value="Cartão de Crédito">Cartão de Crédito</option>
-                              <option value="Cartão de Débito">Cartão de Débito</option>
-                              <option value="PIX">PIX</option>
-                              <option value="Dinheiro">Dinheiro</option>
-                            </select>
-                            <input type="date" value={editDeliveryDate} onChange={e => setEditDeliveryDate(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
-                            <input type="time" value={editDeliveryTime} onChange={e => setEditDeliveryTime(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '5px' }} />
-                            <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
-                              <button className="btn btn-primary btn-sm" style={{ flex: 1, margin: 0, padding: '5px' }} onClick={() => handleSaveOrderEdit(o.id)}>Salvar</button>
-                              <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => setEditingOrderId(null)}>Cancelar</button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <strong>{o.product_name} {o.flavor && `(${o.flavor})`}</strong> (Qtd: {o.quantity})<br/>
-                            {o.client_name && <><small style={{color: '#0056b3'}}>👤 {o.client_name}</small><br/></>}
-                            <small>Entrega: {o.delivery_date ? new Date(o.delivery_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'} às {o.delivery_time || 'N/A'}</small><br/>
-                            <small>Pagamento: {o.payment_method || 'N/A'}</small><br/>
-                            {parseFloat(o.discount) > 0 && <><small style={{color: '#d9534f'}}>Desconto: R$ {o.discount}</small><br/></>}
-                            {parseFloat(o.addition) > 0 && <><small style={{color: '#28a745'}}>Acréscimo: R$ {o.addition} ({o.addition_description})</small><br/></>}
-                            <small><strong>Total: R$ {o.total_price}</strong></small><br/>
-                            <div style={{ marginTop: '8px', padding: '5px', backgroundColor: o.is_paid ? '#d4edda' : '#f8d7da', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px', border: o.is_paid ? '1px solid #c3e6cb' : '1px solid #f5c6cb' }}>
-                              <input 
-                                type="checkbox" 
-                                checked={o.is_paid || false} 
-                                onChange={() => togglePaymentStatus(o.id, o.is_paid)} 
-                                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                              />
-                              <span style={{ fontSize: '0.9rem', color: o.is_paid ? '#155724' : '#721c24', fontWeight: 'bold' }}>
-                                {o.is_paid ? '✅ Pagamento Confirmado' : '⚠️ Aguardando Pagamento'}
-                              </span>
-                            </div>
-                            <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                              <button className="btn btn-primary btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%' }} onClick={() => updateStatus(o.id, 'Entregue')}>Entregar</button>
-                              <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => handleEditOrder(o)}>Editar</button>
-                              <button className="btn btn-sm" style={{ flex: 1, margin: 0, padding: '5px', minWidth: '40%', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={() => updateStatus(o.id, 'Cancelado')}>Cancelar</button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                    {dateOrders.filter(o => o.status === 'Pendente').map(o => renderOrderCard(o))}
                     {dateOrders.filter(o => o.status === 'Pendente').length === 0 && <p style={{ fontSize: '0.9rem', color: '#666' }}>Nenhum pedido pendente.</p>}
                   </div>
 
@@ -551,6 +602,8 @@ function Orders({ token }) {
             </div>
           );
         })}
+          </>
+        )}
       </div>
     </div>
   );
