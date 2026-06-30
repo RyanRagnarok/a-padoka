@@ -5,6 +5,7 @@ import Chart from 'react-apexcharts';
 function Finance({ token }) {
   const [data, setData] = useState({ 
     gross_revenue: 0,
+    total_taxas: 0,
     total_costs: 0,
     total_waste: 0,
     net_profit: 0,
@@ -217,15 +218,38 @@ function Finance({ token }) {
     <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: 'transparent', boxShadow: 'none', padding: '10px' }}>
       <h2 style={{ marginBottom: '30px' }}>📊 Dashboard Financeiro (DRE & KPIs)</h2>
       
+      <div className="finance-kpis" style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
+        
+        {/* Card 1: Faturamento Bruto */}
+        <div className="kpi-card" style={{ padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', flex: 1, minWidth: '250px' }}>
+          <h3 style={{ margin: 0, color: '#666', fontSize: '1rem' }}>Faturamento Bruto</h3>
+          <p style={{ margin: '10px 0 0', fontSize: '1.8rem', fontWeight: 'bold' }}>
+            {formatCurrency(data.gross_revenue)}
+          </p>
+        </div>
+
+        {/* Card 2: Taxas Retidas */}
+        <div className="kpi-card" style={{ padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', flex: 1, minWidth: '250px', borderLeft: '4px solid #d9534f' }}>
+          <h3 style={{ margin: 0, color: '#666', fontSize: '1rem' }}>Taxas de Maquininha</h3>
+          <p style={{ margin: '10px 0 0', fontSize: '1.8rem', fontWeight: 'bold', color: '#d9534f' }}>
+            - {formatCurrency(data.total_taxas)}
+          </p>
+        </div>
+
+        {/* Card 3: Receita Líquida */}
+        <div className="kpi-card" style={{ padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', flex: 1, minWidth: '250px', borderLeft: '4px solid #28a745' }}>
+          <h3 style={{ margin: 0, color: '#666', fontSize: '1rem' }}>Receita Líquida (Caixa)</h3>
+          <p style={{ margin: '10px 0 0', fontSize: '1.8rem', fontWeight: 'bold', color: '#28a745' }}>
+            {formatCurrency(data.gross_revenue - data.total_taxas)}
+          </p>
+        </div>
+
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '40px' }}>
         
         <div className="card" style={{ textAlign: 'center', padding: '20px' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#6B7280', fontWeight: '600' }}>Faturamento Bruto</h4>
-          <h2 style={{ margin: 0, color: '#374151', fontSize: '2rem' }}>{formatCurrency(data.gross_revenue)}</h2>
-        </div>
-
-        <div className="card" style={{ textAlign: 'center', padding: '20px' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#6B7280', fontWeight: '600' }}>Custos Totais</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#6B7280', fontWeight: '600' }}>Custos (Ingredientes)</h4>
           <h2 style={{ margin: 0, color: '#374151', fontSize: '2rem' }}>{formatCurrency(data.total_costs)}</h2>
         </div>
 
@@ -235,7 +259,7 @@ function Finance({ token }) {
         </div>
 
         <div className="card" style={{ textAlign: 'center', padding: '20px', borderTop: `6px solid ${isProfit ? '#10B981' : '#EF4444'}` }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#6B7280', fontWeight: '600' }}>Lucro Líquido</h4>
+          <h4 style={{ margin: '0 0 10px 0', color: '#6B7280', fontWeight: '600' }}>Lucro Líquido Real</h4>
           <h2 style={{ margin: 0, color: isProfit ? '#10B981' : '#EF4444', fontSize: '2.2rem' }}>{formatCurrency(data.net_profit)}</h2>
         </div>
 

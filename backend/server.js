@@ -621,8 +621,9 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
 app.get('/api/finance', authenticateToken, async (req, res) => {
   try {
     // 1. Faturamento Bruto (Soma de Vendas)
-    const revenueResult = await pool.query('SELECT SUM(total_price) as total FROM orders WHERE status = \'Entregue\' OR is_paid = true');
+    const revenueResult = await pool.query('SELECT SUM(total_price) as total, SUM(COALESCE(card_fee, 0)) as total_taxas FROM orders WHERE status = \'Entregue\' OR is_paid = true');
     const gross_revenue = parseFloat(revenueResult.rows[0].total) || 0;
+    const total_taxas = parseFloat(revenueResult.rows[0].total_taxas) || 0;
 
     // 2. Despesas e Perdas
     const expensesResult = await pool.query(`
@@ -655,7 +656,7 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
     const additional_revenue = parseFloat(revenueTxResult.rows[0].total) || 0;
     const total_gross_revenue = gross_revenue + additional_revenue;
 
-    const net_profit = total_gross_revenue - total_costs - total_waste;
+    const net_profit = total_gross_revenue - total_costs - total_waste - total_taxas;
 
     const wasteByCategory = Object.keys(wasteMap).map(k => ({ name: k, value: wasteMap[k] })).sort((a,b) => b.value - a.value);
 
@@ -771,6 +772,7 @@ app.get('/api/finance', authenticateToken, async (req, res) => {
 
     res.json({
       gross_revenue: total_gross_revenue,
+      total_taxas,
       total_costs,
       total_waste,
       net_profit,
