@@ -288,6 +288,15 @@ app.get('/api/clients', authenticateToken, async (req, res) => {
 app.post('/api/clients', authenticateToken, async (req, res) => {
   const { name, phone, email, description } = req.body;
   try {
+    const checkDuplicate = await pool.query(
+      'SELECT id FROM clients WHERE name = $1 OR (phone = $2 AND phone IS NOT NULL AND phone != \'\')',
+      [name, phone]
+    );
+    
+    if (checkDuplicate.rows.length > 0) {
+      return res.status(400).json({ error: 'Cliente já cadastrado com este nome ou telefone.' });
+    }
+
     const { rows } = await pool.query('INSERT INTO clients (name, phone, email, description) VALUES ($1, $2, $3, $4) RETURNING *', [name, phone, email, description]);
     res.json(rows[0]);
   } catch (err) {
@@ -308,12 +317,12 @@ app.delete('/api/clients/:id', authenticateToken, async (req, res) => {
 app.get('/api/clients/:id/stats', authenticateToken, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT p.name as product_name, o.flavor as order_flavor, SUM(o.quantity) as total_quantity
+      SELECT p.name as product_name, o.flavor as order_flavor, SUM(o.quantity) as total_quantity, o.delivery_date as order_date
       FROM orders o
       JOIN products p ON o.product_id = p.id
       WHERE o.client_id = $1 AND o.status = 'Entregue'
-      GROUP BY p.name, o.flavor
-      ORDER BY total_quantity DESC
+      GROUP BY p.name, o.flavor, o.delivery_date
+      ORDER BY o.delivery_date DESC NULLS LAST, total_quantity DESC
     `, [req.params.id]);
     res.json(rows);
   } catch (err) {

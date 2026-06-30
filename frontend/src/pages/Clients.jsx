@@ -42,6 +42,12 @@ function Clients({ token }) {
         },
         body: JSON.stringify({ name, phone, email, description })
       });
+      if (res.status === 400) {
+        const data = await res.json();
+        alert(data.error);
+        return;
+      }
+
       if (res.ok) {
         setName('');
         setPhone('');
@@ -197,11 +203,17 @@ function Clients({ token }) {
                           <p style={{ margin: 0 }}>Carregando...</p>
                         ) : clientStats[c.id]?.stats.length > 0 ? (
                           <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
-                            {clientStats[c.id].stats.map((s, idx) => (
-                              <li key={idx}>
-                                {s.product_name} {s.order_flavor && `(${s.order_flavor})`} - <strong>{s.total_quantity} unidade(s)</strong>
-                              </li>
-                            ))}
+                            {clientStats[c.id].stats.map((s, idx) => {
+                              const dataCompra = s.order_date 
+                                ? new Date(s.order_date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) 
+                                : 'Data não registrada';
+
+                              return (
+                                <li key={idx} style={{ marginBottom: '5px' }}>
+                                  <strong>[{dataCompra}]</strong> - {s.product_name} {s.order_flavor && `(${s.order_flavor})`} - <strong>{s.total_quantity} unidade(s)</strong>
+                                </li>
+                              );
+                            })}
                           </ul>
                         ) : (
                           <p style={{ margin: 0, color: '#666' }}>Nenhuma compra concluída (entregue) registrada.</p>
