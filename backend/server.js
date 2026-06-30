@@ -112,6 +112,8 @@ async function initDb() {
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT false;');
     await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS variation_id INTEGER REFERENCES product_variations(id) ON DELETE SET NULL;');
     await pool.query('ALTER TABLE transactions ADD COLUMN IF NOT EXISTS details JSONB;');
+    await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;');
+    await pool.query('ALTER TABLE product_variations ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;');
     
     // Check if users exist
     const { rows } = await pool.query('SELECT * FROM users');
@@ -201,12 +203,19 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/products', authenticateToken, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT p.*, 
-             COALESCE(json_agg(json_build_object('id', v.id, 'name', v.name, 'price', v.price)) FILTER (WHERE v.id IS NOT NULL), '[]') as variations 
+      SELECT 
+        p.*, 
+        COALESCE(
+          json_agg(
+            json_build_object('id', v.id, 'name', v.name, 'price', v.price)
+          ) FILTER (WHERE v.id IS NOT NULL AND v.active = true), 
+          '[]'
+        ) as variations 
       FROM products p 
       LEFT JOIN product_variations v ON p.id = v.product_id 
+      WHERE p.active = true 
       GROUP BY p.id 
-      ORDER BY p.id DESC
+      ORDER BY p.name;
     `);
     res.json(rows);
   } catch (err) {
@@ -233,9 +242,11 @@ app.post('/api/products', authenticateToken, async (req, res) => {
   }
 });
 app.delete('/api/products/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
   try {
-    await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
+    await pool.query('UPDATE products SET active = false WHERE id = $1', [id]);
+    await pool.query('UPDATE product_variations SET active = false WHERE product_id = $1', [id]);
+    res.json({ success: true, message: 'Produto removido com sucesso (Soft Delete)' });
   } catch (err) {
     console.error('[ERRO]:', err);
     res.status(500).json({ message: 'Erro interno no servidor' });
